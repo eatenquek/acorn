@@ -2,17 +2,18 @@ import Foundation
 import AppKit
 import Vision
 import PDFKit
+import ImageIO
 
 func emit(_ value: [String: Any]) {
     let data = try! JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
     print(String(data: data, encoding: .utf8)!)
 }
-func recognize(_ image: CGImage) throws -> [[String: Any]] {
+func recognize(_ image: CGImage, orientation: CGImagePropertyOrientation = .up) throws -> [[String: Any]] {
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = .accurate
     request.usesLanguageCorrection = false
     request.recognitionLanguages = ["en-US"]
-    try VNImageRequestHandler(cgImage: image).perform([request])
+    try VNImageRequestHandler(cgImage: image, orientation: orientation).perform([request])
     return (request.results ?? []).compactMap { observation in
         guard let item = observation.topCandidates(1).first else { return nil }
         return ["text": item.string, "ocrConfidence": item.confidence]
@@ -48,9 +49,12 @@ do {
             }
         }
         emit(["lines": lines, "method": usedOCR ? "PDF text + local OCR" : "PDF embedded text"])
-    } else if let image = NSImage(contentsOfFile: path), let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+    } else if let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil), let cg = CGImageSourceCreateImageAtIndex(source, 0, nil) {
         if cg.width * cg.height > 40_000_000 { throw NSError(domain: "Acorn", code: 2, userInfo: [NSLocalizedDescriptionKey: "Image is too large. Use a smaller image."]) }
-        emit(["lines": try recognize(cg), "method": "Apple Vision • local OCR"])
+        // Phone photos are usually stored sideways with an EXIF orientation tag; Vision needs it to read the text upright.
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let orientation = (properties?[kCGImagePropertyOrientation] as? UInt32).flatMap(CGImagePropertyOrientation.init(rawValue:)) ?? .up
+        emit(["lines": try recognize(cg, orientation: orientation), "method": "Apple Vision • local OCR"])
     } else { throw NSError(domain: "Acorn", code: 3, userInfo: [NSLocalizedDescriptionKey: "Cannot read this file. Choose a clear PNG, JPEG or PDF."]) }
 } catch {
     emit(["error": error.localizedDescription])

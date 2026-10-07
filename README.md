@@ -10,7 +10,7 @@ Open **http://127.0.0.1:8765** while the local server is running.
 4. Use the scenario controls for ambiguous PRN directions and missing clock time.
 5. Import an image or PDF to explore the limited parser. Use synthetic data for demonstrations.
 
-The seeded Forest and all built-in medication examples are fictional. The parser supports English oral tablet/capsule directions taken once to four times daily, with optional clock times and course length. Unsupported directions are held, not scheduled. This is not a clinical product.
+The seeded Forest and all built-in medication examples are fictional. The parser (`label_parser.py`) supports regular daily English directions: once to four times a day or every 4–24 hours, for tablets, capsules, liquids, drops, puffs and similar. Run its tests with `python3 -m unittest test_label_parser`. Unsupported directions are held, not scheduled. This is not a clinical product.
 
 ## Run again
 
@@ -29,6 +29,7 @@ The server binds only to 127.0.0.1:8765. No Python packages or cloud credentials
 - `ANALYSIS.md`: comprehensive product critique, structural rationale, research, architecture and next steps.
 - `index.html`, `styles.css`, `app.js`: interactive prototype.
 - `server.py`, `ocr.swift`: local extraction pipeline.
+- `label_parser.py`, `test_label_parser.py`: label text → draft schedules, and its tests.
 - `sample-label.png`: fictional pharmacy label.
 - `storyboard.svg`, `figma-screens/`: editable vector screen handoff.
 - `FIGMA-HANDOFF.md`: tokens, screen connections and implementation notes.
