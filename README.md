@@ -10,7 +10,7 @@ Open **http://127.0.0.1:8765** while the local server is running.
 4. Use the scenario controls for ambiguous PRN directions and missing clock time.
 5. Import an image or PDF to explore the limited parser. Use synthetic data for demonstrations.
 
-The seeded Forest and all built-in medication examples are fictional. The parser supports a narrow English once-daily oral tablet/capsule grammar. Unsupported directions are held, not scheduled. This is not a clinical product.
+The seeded Forest and all built-in medication examples are fictional. The parser supports English oral tablet/capsule directions taken once to four times daily, with optional clock times and course length. Unsupported directions are held, not scheduled. This is not a clinical product.
 
 ## Run again
 

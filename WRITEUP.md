@@ -16,9 +16,9 @@ A medication routine app where recorded care grows a calm, personal forest. This
 
 1. The browser sends a label photo or PDF to a local Python server (`server.py`, standard library only, bound to 127.0.0.1).
 2. A Swift helper (`ocr.swift`) reads it with **Apple Vision** (accurate mode, English). For PDFs, **PDFKit** uses embedded text first and only OCRs scanned pages. Nothing goes to the cloud. The temporary file is deleted afterwards.
-3. A deliberately narrow rule-based parser pulls out the medicine name, strength, dose, route, time and frequency.
-4. The parser flags the draft for clarification when OCR confidence is below 0.8, when the directions are complex (as needed, taper, "then", every N hours, for N days, BID/TID), or when they don't exactly match "Take [n] tablet(s) by mouth (at HH:MM) daily".
-5. A flagged draft is held ("Let's not guess") and nothing is scheduled. A clean draft goes to a review screen. The user checks it against their prescription and confirms, then chooses a time if the label has none.
+3. A rule-based parser pulls out the medicine name, strength, dose, route, frequency (once to four times daily, including BID/TID/QID), clock times and course length ("for 10 days"). It joins directions that wrap across lines, ignores advice such as "Take with food", and shows any other medicine-like text on the review screen so the person picks deliberately.
+4. The parser flags the draft for clarification when OCR confidence is below 0.8, when the directions are complex (as needed, taper, "then", every N hours, weekly, until), when there is a second dosing instruction, or when the frequency or dose can't be found.
+5. A flagged draft is held ("Let's not guess") and nothing is scheduled. A clean draft goes to a review screen. The user checks it against their prescription and confirms. If the label gives no clock times, Acorn suggests evenly spaced ones (e.g. 08:00 · 14:00 · 20:00) for the person to adjust, and a course length sets an end date.
 
 **Safety stance.** No review step means no schedule. The prototype never gives missed-dose advice; it points to the pharmacist or care team.
 
@@ -40,7 +40,7 @@ Sources: [HealthHub medication records](https://support.healthhub.sg/hc/en-us/ar
 
 - **Real health-record access (HealthHub/NEHR).** There is no public third-party consumer API, and production access needs a partnership, consent and identity work beyond a prototype.
 - **AI vision extraction.** I avoided sending prescription images to a third-party API without governance or an approved vendor. Local OCR proves feasibility with no keys or uploads.
-- **Complex prescriptions.** Multiple medicines per label, liquids, injections, tapering, PRN and weekly schedules are held, not parsed. Getting them wrong is dangerous, and they need clinical review to get right.
+- **Complex prescriptions.** Multiple medicines per label, liquids, injections, tapering, PRN, every-N-hours and weekly schedules are held, not parsed. Getting them wrong is dangerous, and they need clinical review to get right.
 - **Persistence, accounts and push notifications.** The schedule lives in browser memory and can be exported as JSON. There is no backend, no reminder service and no mobile app.
 - **Cross-platform OCR.** It relies on Apple Vision, so it only runs on macOS.
 - **User testing.** No time-to-correct-schedule or return-after-miss measurements yet, so the prototype makes no speed or adherence claims.
@@ -50,7 +50,7 @@ Sources: [HealthHub medication records](https://support.healthhub.sg/hc/en-us/ar
 
 1. **A mobile app with on-device OCR** (Vision on iOS, ML Kit on Android) plus local notifications, so reminders actually fire.
 2. **A versioned schedule and dose ledger.** Medication changes preserve history. Corrections update rewards, and repeated taps can't mint acorns.
-3. **Broader parsing, behind the same hold rule:** twice daily, multiple medicines and liquids, with field-level evidence and pharmacist review of the rules.
+3. **Broader parsing, behind the same hold rule:** multiple medicines, liquids and every-N-hours, with field-level evidence and pharmacist review of the rules.
 4. **An extraction benchmark:** OCR + rules vs. a vision model on the same de-identified labels. Measure field accuracy, abstention on unsupported cases, user correction rate and dangerous substitutions (mg/mcg, 0.5/5, weekly/daily).
 5. **A lightweight usability study** (ANALYSIS.md §10): can someone confirm a correct schedule quickly, and come back after a miss without feeling punished?
 6. **Health-record integration**, once partner access, scopes and consent are confirmed.
