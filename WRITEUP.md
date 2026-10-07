@@ -46,7 +46,7 @@ Sources: [HealthHub medication records](https://support.healthhub.sg/hc/en-us/ar
 
 - **Real health-record access (HealthHub/NEHR).** There is no public third-party consumer API, and production access needs a partnership, consent and identity work beyond a prototype.
 - **AI vision extraction.** I avoided sending prescription images to a third-party API without governance or an approved vendor. Local OCR proves feasibility with no keys or uploads.
-- **Complex prescriptions.** Injections, tapering, PRN, dose ranges and weekly schedules are held, not parsed. Getting them wrong is dangerous, and they need clinical review. Getting them wrong is dangerous, and they need clinical review to get right.
+- **Complex prescriptions.** Injections, tapering, PRN, dose ranges and weekly schedules are held, not parsed. Getting them wrong is dangerous, and they need clinical review to get right.
 - **Persistence, accounts and push notifications.** The schedule lives in browser memory and can be exported as JSON. There is no backend, no reminder service and no mobile app.
 - **Cross-platform OCR.** It relies on Apple Vision, so it only runs on macOS.
 - **User testing.** No time-to-correct-schedule or return-after-miss measurements yet, so the prototype makes no speed or adherence claims.
