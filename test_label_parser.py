@@ -46,6 +46,7 @@ class Directions(unittest.TestCase):
         self.check('Take 1 tablet q6h', 4)
         self.check('Take 1 tablet Q6H', 4)
         self.check('Take 1 tablet every 5 hours', None, hold='unsupported_interval')
+        self.assertEqual(parse_directions('Take 1-2 tablets every 4-6 hours')['hold'], 'variable')
 
     def test_other_forms(self):
         self.check('Take 5 ml three times a day', 3, '5 ml')
@@ -59,6 +60,13 @@ class Directions(unittest.TestCase):
                      'Take one tablet weekly on Monday', 'Take 1 tablet up to 3 times a day', 'Take one or two tablets at night',
                      'Use as directed', 'Inject 10 units at bedtime', 'Take 1 tablet every other day', 'Take 1 tablet PRN']:
             self.assertTrue(parse_directions(text)['hold'], text)
+
+    def test_hold_kinds(self):
+        for text, kind in [('Take 1 tablet as needed for pain', 'as_needed'), ('TAKE 1 TABLET BY MOUTH UP TO 2 TIMES DAILY', 'variable'),
+                           ('Take one or two tablets at night', 'variable'), ('Take 2 tablets daily then 1 tablet daily', 'changing'),
+                           ('Take one tablet weekly on Monday', 'not_daily'), ('Use as directed', 'as_directed'),
+                           ('Inject 10 units at bedtime', 'injection')]:
+            self.assertEqual(parse_directions(text)['hold'], kind, text)
 
     def test_until_finished_is_fine(self):
         self.check('Take 1 capsule 3 times a day until finished', 3)
@@ -90,6 +98,12 @@ class Labels(unittest.TestCase):
     def test_name_split_from_strength(self):
         m = extract(lines('AMOXICILLIN', '500MG CAPSULES', 'Take 1 capsule 3 times a day'))[0]
         self.assertEqual(m['name'], 'AMOXICILLIN 500MG CAPSULES')
+
+    def test_generic_name_above_brand(self):
+        meds = extract(lines('Miss Member', 'DATE: 01/01/2016', 'Metformin 500mg', 'IC Glucophage 500mg',
+                             'TAKE 1 TABLET BY MOUTH UP TO 2 TIMES DAILY', 'RX 1234567-09', 'QTY: 60'))
+        self.assertEqual(meds[0]['name'], 'Metformin 500mg')
+        self.assertEqual(meds[0]['holdReasons'], ['variable'])
 
     def test_name_without_strength(self):
         m = extract(lines('Clinic Pharmacy', 'PANADOL', 'Take 2 tablets 3 times a day'))[0]

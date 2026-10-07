@@ -18,7 +18,14 @@ STRENGTH = re.compile(r'(?i)\b(\d+(?:\.\d+)?\s*(?:mg|mcg|µg|ug|g|iu|%)(?:\s*/\s
 NOISE = re.compile(r'(?i)\b(?:qty|quantity|refills?|rx\s*(?:no|#)|ndc|tel|phone|fax|expir\w*|exp|dispensed|date|dr|doctor|prescriber|patient|address|pharmacy|clinic|hospital|polyclinic|keep|warning|caution|lot|batch|price|cost|www|street|road|avenue)\b|\$|@')
 CONTINUATION = re.compile(r'(?i)\b(daily|day|days|times?|morning|noon|afternoon|evening|night|bedtime|breakfast|lunch|dinner|supper|food|meals?|hours?|hrs?|weeks?|months?|by mouth|orally|for\s+\d+|bd|tds|qds|om|on|am|pm|until|finished|completed|course|stomach|water)\b')
 
-COMPLEX = re.compile(r'(?i)as needed|when needed|if needed|when required|if required|\bprn\b|\bsos\b|\bthen\b|followed by|taper|reduc|increas|alternate|every other|weekly|\ba week\b|per week|fortnight|monthly|\ba month\b|sliding scale|as directed|as instructed|as advised|\bup to\b|\bmax(?:imum)?\b|\bif (?:pain|fever|necessary)|\bon (?:mon|tue|wed|thu|fri|sat|sun)')
+# Directions that need a person to interpret them, by kind, so the hold can say what is unclear.
+HOLD_PATTERNS = [
+    ('as_needed', r'as needed|when needed|if needed|when required|if required|\bprn\b|\bsos\b|\bif (?:pain|fever|necessary)'),
+    ('variable', r'\bup to\b|\bmax(?:imum)?\b|\bnot (?:more|exceed)'),
+    ('changing', r'\bthen\b|followed by|taper|reduc|increas|sliding scale'),
+    ('not_daily', r'alternate|every other|weekly|\ba week\b|per week|fortnight|monthly|\ba month\b|\bon (?:mon|tue|wed|thu|fri|sat|sun)'),
+    ('as_directed', r'as directed|as instructed|as advised'),
+]
 UNTIL_OK = re.compile(r'(?i)\buntil\b(?!\s+(?:finished|completed|all\b|the course|course|gone))')
 DOSE_RANGE = re.compile(rf'(?i)\b{NUM}\s*(?:-|to|or)\s*{NUM}\s*(?:{FORM})(?![a-z])')
 
@@ -34,7 +41,11 @@ WARNINGS = {'low_confidence': 'Parts of this label were hard to read. Check each
             'no_dose': 'We could not find the amount per dose. Add it from your label.',
             'no_frequency': 'We could not tell how often to take this. Check the directions match your label.',
             'no_directions': 'We could not find the directions. Type them as written on the label.'}
-HOLDS = {'complex_directions': '“As needed”, tapering, weekly or changing directions do not become daily reminders.',
+HOLDS = {'as_needed': 'These directions say to take it only when needed, so there is no fixed daily schedule to remind you about.',
+         'variable': 'These directions allow a varying number of doses (“up to”, a maximum or a range). Acorn will not choose the number for you.',
+         'changing': 'These directions change over time (for example a tapering dose), which needs a different setup.',
+         'not_daily': 'These directions are not every day (for example weekly or alternate days), which this version does not schedule yet.',
+         'as_directed': '“As directed” does not say how much or how often, so there is nothing safe to schedule.',
          'unsupported_interval': 'This dosing interval does not divide evenly into a day, so it needs a different setup.',
          'injection': 'Injections and unit-based doses need a setup checked by your care team.'}
 
@@ -95,7 +106,7 @@ def frequency(text, original):
     interval = re.search(rf'(?i)\b(?:every|each)\s+({NUM})\s*(?:(?:-|to|or)\s*({NUM})\s*)?(?:hours?|hrs?|h)\b|\bq\s*(\d+)\s*h(?:rs?|ours?)?\b', text)
     if interval:
         if interval.group(2):
-            return None, None, [], 'complex_directions'
+            return None, None, [], 'variable'
         hours = number(interval.group(1) or interval.group(3))
         if hours not in (4, 6, 8, 12, 24):
             return None, None, [], 'unsupported_interval'
@@ -145,8 +156,11 @@ def parse_directions(directions):
     text = normalize(directions)
     dose = dose_of(text)
     per_day, interval, label_times, hold = frequency(text, text)
-    if COMPLEX.search(text) or UNTIL_OK.search(text) or DOSE_RANGE.search(text):
-        hold = 'complex_directions'
+    kind = next((k for k, pattern in HOLD_PATTERNS if re.search(pattern, text, re.I)), None)
+    if kind or DOSE_RANGE.search(text):
+        hold = kind or 'variable'
+    elif UNTIL_OK.search(text):
+        hold = 'changing'
     if re.search(r'(?i)\binject|\b\d+\s*(?:units?|iu)\b', text):
         hold = hold or 'injection'
     duration = re.search(rf'(?i)\b(?:for|x)\s*({NUM})\s*(days?|weeks?|wks?)\b', text)
@@ -264,7 +278,13 @@ def extract(lines):
         before = [c for c in candidates if prev_end < c[0] < start and c[0] not in taken]
         after = [c for c in candidates if end < c[0] < next_start and c[0] not in taken]
         # A name above the directions belongs to them; below is the next best guess (common label layout).
-        chosen = before[-1] if before else (after[0] if after else None)
+        if before:
+            k = len(before) - 1
+            while k and before[k - 1][0] == before[k][0] - 1:  # "Metformin 500mg" above "Glucophage 500mg"
+                k -= 1
+            chosen = before[k]
+        else:
+            chosen = after[0] if after else None
         name = chosen[1] if chosen else ''
         if not chosen:
             above = [k for k in range(start - 1, max(prev_end, start - 4), -1) if name_like(texts[k]) and k not in used]
